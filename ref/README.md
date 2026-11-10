@@ -1,0 +1,3 @@
+# Reference libraries (read, do not run)
+- shotcraft/: video-shotcraft (Apache-2.0, upstream commit in shotcraft/UPSTREAM). 124 shot recipe cards in shots/<category>/ (mostly Chinese), their Remotion demo code in demos/<category>/<card>/, plus aesthetic-rules.md, final-review.md, sound-design.md and music-beat-sync.md. Studios pick a card per beat in the storyboard (MOTION.md step 1), then build it with remotion/ components, or port the demo code to 1080x1920 when the kit lacks it. Demos are 1920x1080 and pin React 19; adapt, do not copy-paste blindly.
+It is kept as a library, not installed as a Claude skill: the skill stops to ask the user which mode to use and ships a third-party publishing path, both wrong for our unattended passes and our official-API rule.
