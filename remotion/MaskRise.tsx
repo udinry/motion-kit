@@ -51,7 +51,7 @@ export const MaskRise: React.FC<Props> = ({
         display: 'flex',
         flexWrap: 'wrap',
         justifyContent: align === 'center' ? 'center' : align === 'left' ? 'flex-start' : 'flex-end',
-        columnGap: fontSize * 0.28,
+        columnGap: fontSize * 0.3,
         rowGap: fontSize * 0.05,
         fontSize,
         fontFamily,
@@ -68,7 +68,7 @@ export const MaskRise: React.FC<Props> = ({
         const y = (1 - p) * 110 + out * -60;
         const alpha = exitAt > 0 ? 1 - out : 1;
         return (
-          <span key={i} style={{display: 'inline-block', overflow: 'hidden', padding: '0.1em 0.14em', margin: '-0.1em -0.14em'}}>
+          <span key={i} style={{display: 'inline-block', overflow: 'hidden', padding: '0.1em 0.14em', margin: `-0.1em ${isKey ? 0.0375 * w.length - 0.14 : -0.14}em`}}>
             <span
               style={{
                 display: 'inline-block',

@@ -7,3 +7,5 @@ export * from './Numbers';
 export * from './Telestrator';
 export * from './Texture';
 export * from './Fx';
+export * from './Cards';
+export * from './Transitions';

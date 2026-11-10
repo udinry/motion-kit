@@ -7,23 +7,25 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "studio": "remotion studio demo/src/index.ts",
     "render": "remotion render demo/src/index.ts Showcase demo/out/showcase.mp4 --concurrency=2 --gl=angle",
-    "still": "remotion still demo/src/index.ts Showcase"
+    "still": "remotion still demo/src/index.ts Showcase",
+    "bake:marbles": "node tools/bake-marbles.mjs --seed 7 --out demo/src/marbles.json"
   },
   "dependencies": {
+    "@react-three/drei": "9.109.2",
+    "@react-three/fiber": "8.17.10",
+    "@react-three/postprocessing": "2.16.3",
     "@remotion/cli": "4.0.462",
     "@remotion/motion-blur": "4.0.462",
     "@remotion/paths": "4.0.462",
     "@remotion/three": "4.0.462",
-    "remotion": "4.0.462",
+    "postprocessing": "6.35.5",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "three": "0.160.1",
-    "@react-three/fiber": "8.17.10",
-    "@react-three/drei": "9.109.2",
-    "@react-three/postprocessing": "2.16.3",
-    "postprocessing": "6.35.5"
+    "remotion": "4.0.462",
+    "three": "0.160.1"
   },
   "devDependencies": {
+    "@dimforge/rapier3d-compat": "^0.19.2",
     "@types/react": "18.3.12",
     "@types/three": "0.160.0",
     "typescript": "5.6.3"

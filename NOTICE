@@ -1,5 +1,23 @@
-motion-kit is original code. Ideas and method were studied from, and no source was copied from:
-- Vincentwei1021/video-shotcraft (Apache-2.0): beat-grid method (librosa beat_track plus least-squares fit, 15 ms residual), shot card vocabulary (axis-rescale shock, digit roll, before/after slider).
-- patch-gg/pixelfx (MIT): hit-stop and shake timing.
-- lemomo-ai/lemo-opuscar (MIT) and the Opus prompt packs: read-time rule, determinism rules.
-Third-party packages used by demo/ and remotion/three: Remotion (own licence, company licence may apply), three, @react-three/fiber, drei, postprocessing (MIT).
+motion-kit is original code written for our studios. It was designed after reading the repositories below. No source file was copied
+verbatim; where a mechanism is ported (re-implemented from the other project's behaviour and numbers) it is listed here with the licence.
+
+Vincentwei1021/video-shotcraft, Apache-2.0 (https://github.com/Vincentwei1021/video-shotcraft)
+  Mechanisms ported to 1080x1920 Remotion/React 18 in remotion/: the axis-rescale-shock card (bar bursts past the ceiling, hold, then the
+  axis rescales: AxisRescaleShock), chart-live-moves (live line with a following y-range: LiveLineChart), gauge-readout-moves (needle sweep
+  with readout: GaugeNeedle), before-after-slider-scrub (BeforeAfterSlider), flying-words (FlyingWords), paparazzi-flash (multi-flash burst
+  with a crop cut per flash, settle 1.03 to 1, distant star pops: PaparazziFlash), FlashCut (warm bloom), the DigitRoll strip roll (DigitRoll),
+  PageCam (2.5D camera over a page with CSS zoom for sharp text: PageCam), and the beat-grid method in py/beat.py (beat_track, least-squares
+  grid fit, 15 ms residual rule, half/double check). Text-as-mask, card-stack and spotlight-sweep follow the same card vocabulary.
+  The files in demo/ of that repo and its Remotion fixtures were read for behaviour only; their code is not included here.
+
+patch-gg/pixelfx, MIT (https://github.com/patch-gg/pixelfx), Copyright (c) 2026 patch-gg
+  Mechanisms ported as deterministic frame functions: the act hit-stop and screen shake (freeze, then shake with linear decay, sin/cos at 60 Hz
+  steps with y at 0.7x: HitStop.tsx), the confetti popper burst / air-stall / flutter / paper-flip / settle behaviour (Confetti in Fx.tsx), and the
+  burn-away, iris and slash transitions (Transitions.tsx: BurnAway, IrisWipe, SlashWipe). pixelfx itself says parts of its code adapt Sprite
+  Fusion VFX (Hugo Duprez, MIT) and Hollow Crown (rehan-remade, MIT); we ported behaviour and numbers only, not their source.
+
+lemomo-ai/lemo-opuscar (MIT) and the Opus prompt packs: read-time rule and determinism rules, used as spec text in MOTION.md.
+
+Third-party packages used by demo/, remotion/three/ and tools/: Remotion (own licence; a company licence may be required), three, @react-three/fiber,
+@react-three/drei, @react-three/postprocessing, postprocessing (MIT), @dimforge/rapier3d-compat (Apache-2.0; the physics engine under
+@react-three/rapier, used by tools/bake-marbles.mjs).

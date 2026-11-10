@@ -1,16 +1,16 @@
 import React, {useLayoutEffect, useMemo} from 'react';
-import {useCurrentFrame} from 'remotion';
+import {AbsoluteFill, useCurrentFrame} from 'remotion';
 import {ThreeCanvas} from '@remotion/three';
 import {ContactShadows} from '@react-three/drei';
 import {EffectComposer, TiltShift2} from '@react-three/postprocessing';
 import {useThree} from '@react-three/fiber';
 import * as THREE from 'three';
-import {ease, expoOut, rng} from '../easing';
+import {ease, expoOut, lerp, rng} from '../easing';
 
 export type MoneyBar = {
   label: string;
   value: number;
-  /** Note or coin colour; the highlighted bar gets the video's accent. */
+  /** Note or coin colour; give the highlighted bar the video's accent. */
   color?: string;
 };
 
@@ -20,6 +20,20 @@ export type CameraSpec = {
   fov: number;
 };
 
+export type PushSpec = {
+  /** Local frame the push starts. */
+  start?: number;
+  frames?: number;
+  /** Camera distance from the target at the start and at the end of the push. */
+  from?: number;
+  to?: number;
+  /** Elevation above the ground in degrees (20-25 reads as a tabletop shot). */
+  elevation?: number;
+  /** Azimuth sweep in radians over the push (the slow orbit). */
+  orbit?: number;
+  fov?: number;
+};
+
 export type MoneyBars3DProps = {
   bars: MoneyBar[];
   /** Value at the top of the axis. A bar of value == axisMax is exactly BAR_MAX_HEIGHT tall. */
@@ -27,39 +41,52 @@ export type MoneyBars3DProps = {
   width?: number;
   height?: number;
   kind?: 'notes' | 'coins';
-  /** Notes (or coins) per axis unit; the stack is value/axisMax * maxNotes high, rounded up. */
+  /** Notes (or coins) in a full-height bar; a bar holds ceil(value/axisMax * maxNotes) of them. */
   maxNotes?: number;
   start?: number;
   riseFrames?: number;
-  /** Frames between bars starting. */
   stagger?: number;
   noteColor?: string;
   groundColor?: string;
+  wallColor?: string;
   background?: string;
   tiltShift?: boolean;
-  /** Slow orbit in radians over `orbitFrames`. */
-  orbit?: number;
-  orbitFrames?: number;
+  push?: PushSpec;
   seed?: number;
   tickCount?: number;
+  labels?: boolean;
+  formatValue?: (n: number) => string;
+  formatTick?: (n: number) => string;
+  ink?: string;
+  fontFamily?: string;
 };
 
-export const BAR_MAX_HEIGHT = 5;
-const SLOT = 1.45;
+export const BAR_MAX_HEIGHT = 6.2;
+const SLOT = 1.32;
+const DEPTH = 3.6;
+const WALL_Z = -1.8;
+const PLINTH_H = 0.3;
 
-const defaultCamera: CameraSpec = {position: [0, 6.2, 14.5], target: [0, 2.9, 0], fov: 42};
+export const barX = (i: number, n: number): number => (i - (n - 1) / 2) * SLOT;
+export const barTopY = (value: number, axisMax: number): number => (value / axisMax) * BAR_MAX_HEIGHT;
 
-export const cameraAt = (orbit: number, t: number, base: CameraSpec = defaultCamera): CameraSpec => {
-  const a = orbit * t;
-  const [x, y, z] = base.position;
-  const nx = x * Math.cos(a) + z * Math.sin(a);
-  const nz = -x * Math.sin(a) + z * Math.cos(a);
-  return {position: [nx, y, nz], target: base.target, fov: base.fov};
+export const moneyCamera = (frame: number, p: PushSpec = {}): CameraSpec => {
+  const {start = 0, frames = 150, from = 27, to = 20, elevation = 22, orbit = 0.5, fov = 36} = p;
+  const k = ease(frame, start, frames, expoOut);
+  const d = lerp(from, to, k);
+  const az = (k - 0.5) * orbit;
+  const el = (elevation * Math.PI) / 180;
+  const target: [number, number, number] = [0, BAR_MAX_HEIGHT * 0.40, 0];
+  return {
+    position: [Math.sin(az) * Math.cos(el) * d, target[1] + Math.sin(el) * d, Math.cos(az) * Math.cos(el) * d],
+    target,
+    fov,
+  };
 };
 
-/** Screen position (px) of a world point for a camera spec: place HTML labels over the 3D scene. */
+/** Screen position (px) of a world point for a camera spec: anchors HTML labels to the 3D scene. */
 export const projectPoint = (p: [number, number, number], cam: CameraSpec, width: number, height: number): {x: number; y: number} => {
-  const c = new THREE.PerspectiveCamera(cam.fov, width / height, 0.1, 100);
+  const c = new THREE.PerspectiveCamera(cam.fov, width / height, 0.1, 200);
   c.position.set(...cam.position);
   c.lookAt(...cam.target);
   c.updateMatrixWorld();
@@ -67,10 +94,6 @@ export const projectPoint = (p: [number, number, number], cam: CameraSpec, width
   const v = new THREE.Vector3(...p).project(c);
   return {x: ((v.x + 1) / 2) * width, y: ((1 - v.y) / 2) * height};
 };
-
-export const barX = (i: number, n: number): number => (i - (n - 1) / 2) * SLOT;
-
-export const barTopY = (value: number, axisMax: number): number => (value / axisMax) * BAR_MAX_HEIGHT;
 
 const Rig: React.FC<{cam: CameraSpec}> = ({cam}) => {
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
@@ -83,6 +106,53 @@ const Rig: React.FC<{cam: CameraSpec}> = ({cam}) => {
     invalidate();
   });
   return null;
+};
+
+/** A banknote face drawn once from a seed: border, inner frame, oval medallion, guilloche lines, corner marks. */
+const useNoteTexture = (hex: string, seed: number): THREE.CanvasTexture => {
+  return useMemo(() => {
+    const W = 256;
+    const H = 128;
+    const cv = document.createElement('canvas');
+    cv.width = W;
+    cv.height = H;
+    const c = cv.getContext('2d') as CanvasRenderingContext2D;
+    const base = new THREE.Color(hex);
+    const css = (k: number): string => `#${base.clone().multiplyScalar(k).getHexString()}`;
+    c.fillStyle = css(1.05);
+    c.fillRect(0, 0, W, H);
+    const r = rng(seed);
+    for (let i = 0; i < 700; i++) {
+      c.fillStyle = `rgba(255,255,255,${0.04 + r() * 0.06})`;
+      c.fillRect(r() * W, r() * H, 1 + r() * 2, 1);
+    }
+    c.strokeStyle = css(0.62);
+    c.lineWidth = 5;
+    c.strokeRect(5, 5, W - 10, H - 10);
+    c.lineWidth = 2;
+    c.strokeRect(14, 14, W - 28, H - 28);
+    c.strokeStyle = css(0.78);
+    c.lineWidth = 1;
+    for (let y = 20; y < H - 20; y += 4) {
+      c.beginPath();
+      for (let x = 20; x <= W - 20; x += 4) c.lineTo(x, y + Math.sin(x * 0.18 + y * 0.4) * 2.2);
+      c.stroke();
+    }
+    c.fillStyle = css(1.18);
+    c.beginPath();
+    c.ellipse(W / 2, H / 2, 38, 30, 0, 0, Math.PI * 2);
+    c.fill();
+    c.strokeStyle = css(0.6);
+    c.lineWidth = 3;
+    c.stroke();
+    c.fillStyle = css(0.55);
+    c.fillRect(W / 2 - 4, H / 2 - 16, 8, 32);
+    for (const [x, y] of [[28, 26], [W - 52, 26], [28, H - 36], [W - 52, H - 36]]) c.fillRect(x, y, 24, 10);
+    const t = new THREE.CanvasTexture(cv);
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = 8;
+    return t;
+  }, [hex, seed]);
 };
 
 const Stack: React.FC<{
@@ -98,24 +168,48 @@ const Stack: React.FC<{
   const total = (value / axisMax) * BAR_MAX_HEIGHT;
   const n = Math.max(1, Math.ceil((value / axisMax) * maxNotes));
   const t = total / n;
-  const notes = useMemo(() => {
+  const jit = useMemo(() => {
     const r = rng(seed);
-    return Array.from({length: n}, () => ({dx: (r() - 0.5) * 0.05, dz: (r() - 0.5) * 0.05, yaw: (r() - 0.5) * 0.07}));
+    return Array.from({length: n}, () => ({dx: (r() - 0.5) * 0.07, dz: (r() - 0.5) * 0.07, yaw: (r() - 0.5) * 0.09}));
   }, [n, seed]);
+  const tex = useNoteTexture(color, seed);
   const base = useMemo(() => new THREE.Color(color), [color]);
-  const alt = useMemo(() => base.clone().multiplyScalar(0.9), [base]);
+  const edgeA = useMemo(() => base.clone().lerp(new THREE.Color('#f1ead4'), 0.55), [base]);
+  const edgeB = useMemo(() => base.clone().lerp(new THREE.Color('#f1ead4'), 0.3), [base]);
   const lit = Math.max(0, p) * n;
   return (
     <group position={[x, 0, 0]}>
-      {notes.map((nt, i) => {
+      {jit.map((nt, i) => {
         const vis = Math.min(1, Math.max(0, lit - i));
         if (vis <= 0) return null;
         const th = t * vis;
+        const edge = i % 2 === 0 ? edgeA : edgeB;
+        const banded = kind === 'notes' && i % 10 === 9;
         return (
-          <mesh key={i} position={[nt.dx, i * t + th / 2, nt.dz]} rotation={[0, nt.yaw, 0]} scale={[1, th, 1]} castShadow receiveShadow>
-            {kind === 'notes' ? <boxGeometry args={[1.0, 1, 0.5]} /> : <cylinderGeometry args={[0.45, 0.45, 1, 36]} />}
-            <meshStandardMaterial color={i % 2 === 0 ? base : alt} roughness={kind === 'coins' ? 0.38 : 0.82} metalness={kind === 'coins' ? 0.55 : 0} />
-          </mesh>
+          <group key={i} position={[nt.dx, i * t + th / 2, nt.dz]} rotation={[0, nt.yaw, 0]}>
+            {kind === 'notes' ? (
+              <mesh scale={[1, th, 1]} castShadow receiveShadow>
+                <boxGeometry args={[1.0, 1, 0.5]} />
+                <meshStandardMaterial attach="material-0" color={edge} roughness={0.92} />
+                <meshStandardMaterial attach="material-1" color={edge} roughness={0.92} />
+                <meshStandardMaterial attach="material-2" map={tex} roughness={0.85} />
+                <meshStandardMaterial attach="material-3" color={edge} roughness={0.92} />
+                <meshStandardMaterial attach="material-4" color={edge} roughness={0.92} />
+                <meshStandardMaterial attach="material-5" color={edge} roughness={0.92} />
+              </mesh>
+            ) : (
+              <mesh scale={[1, th, 1]} castShadow receiveShadow>
+                <cylinderGeometry args={[0.46, 0.46, 1, 48]} />
+                <meshStandardMaterial color={i % 2 === 0 ? base : base.clone().multiplyScalar(0.9)} roughness={0.34} metalness={0.35} />
+              </mesh>
+            )}
+            {banded ? (
+              <mesh scale={[1, th * 1.02, 1]} castShadow>
+                <boxGeometry args={[1.045, 1, 0.545]} />
+                <meshStandardMaterial color="#e6d39a" roughness={0.9} />
+              </mesh>
+            ) : null}
+          </group>
         );
       })}
     </group>
@@ -131,55 +225,60 @@ const Scene: React.FC<MoneyBars3DProps & {cam: CameraSpec}> = ({
   riseFrames = 26,
   stagger = 4,
   noteColor = '#8da586',
-  groundColor = '#e6d6b6',
+  groundColor = '#dcc79e',
+  wallColor = '#f4ecd9',
   background = '#efe6d2',
-  tiltShift = false,
+  tiltShift = true,
   seed = 3,
   tickCount = 4,
   cam,
 }) => {
   const frame = useCurrentFrame();
   const n = bars.length;
-  const span = n * SLOT + 1.6;
+  const span = n * SLOT + 1.4;
   const ticks = Array.from({length: tickCount + 1}, (_, k) => (k / tickCount) * BAR_MAX_HEIGHT);
+  const wallH = BAR_MAX_HEIGHT + 0.7;
   return (
     <>
       <color attach="background" args={[background]} />
-      <fog attach="fog" args={[background, 28, 48]} />
       <Rig cam={cam} />
-      <ambientLight intensity={0.9} color="#fff3de" />
+      <ambientLight intensity={0.95} color="#fff3de" />
       <directionalLight
-        position={[-5, 9, 6]}
-        intensity={2.5}
+        position={[-6, 10, 7]}
+        intensity={2.6}
         color="#fff0d6"
         castShadow
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
         shadow-camera-left={-9}
         shadow-camera-right={9}
-        shadow-camera-top={9}
-        shadow-camera-bottom={-9}
-        shadow-bias={-0.0004}
-        shadow-radius={6}
+        shadow-camera-top={12}
+        shadow-camera-bottom={-6}
+        shadow-bias={-0.0003}
+        shadow-radius={5}
       />
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow position={[0, -0.001, 0]}>
-        <planeGeometry args={[60, 60]} />
-        <meshStandardMaterial color={groundColor} roughness={1} />
+      <mesh position={[0, -PLINTH_H / 2, 0]} receiveShadow castShadow>
+        <boxGeometry args={[span, PLINTH_H, DEPTH]} />
+        <meshStandardMaterial color={groundColor} roughness={0.95} />
+      </mesh>
+      <mesh position={[0, wallH / 2 - PLINTH_H, WALL_Z - 0.06]} receiveShadow>
+        <boxGeometry args={[span, wallH + PLINTH_H, 0.12]} />
+        <meshStandardMaterial color={wallColor} roughness={1} />
       </mesh>
       {ticks.map((y, k) => (
-        <mesh key={k} position={[0, y, -1.3]}>
-          <boxGeometry args={[span, 0.02, 0.01]} />
-          <meshBasicMaterial color={k === 0 ? '#5b4a35' : '#b8a684'} />
+        <mesh key={k} position={[0, y, WALL_Z + 0.005]}>
+          <boxGeometry args={[span - 0.3, k === 0 ? 0.045 : 0.025, 0.01]} />
+          <meshBasicMaterial color={k === 0 ? '#5b4a35' : '#b9a67f'} />
         </mesh>
       ))}
       {bars.map((b, i) => {
         const p = ease(frame, start + i * stagger, riseFrames, expoOut);
         return <Stack key={i} value={b.value} axisMax={axisMax} maxNotes={maxNotes} kind={kind} color={b.color ?? noteColor} x={barX(i, n)} p={p} seed={seed + i * 13} />;
       })}
-      <ContactShadows position={[0, 0.002, 0]} opacity={0.4} scale={16} blur={2.8} far={4.5} resolution={512} color="#5a4328" />
+      <ContactShadows position={[0, 0.004, 0]} opacity={0.5} scale={14} blur={2.2} far={5} resolution={512} color="#5a4328" />
       {tiltShift ? (
         <EffectComposer multisampling={0}>
-          <TiltShift2 blur={0.22} taper={0.5} start={[0.5, 0.42]} end={[0.5, 0.62]} samples={12} />
+          <TiltShift2 blur={0.35} taper={0.55} start={[0, 0.5]} end={[1, 0.5]} samples={12} direction={[0, 1]} />
         </EffectComposer>
       ) : null}
     </>
@@ -187,22 +286,49 @@ const Scene: React.FC<MoneyBars3DProps & {cam: CameraSpec}> = ({
 };
 
 /**
- * 3D bar chart where each bar is a stack of notes or coins. Heights are exactly value/axisMax * BAR_MAX_HEIGHT.
- * One key light, soft contact shadows, warm ground. Render with `--gl=angle` on Windows.
+ * 3D bar chart where each bar is a stack of notes or coins; heights are exactly value/axisMax * BAR_MAX_HEIGHT.
+ * One key light, soft contact shadows, a plinth and a back wall with axis ticks, labels anchored in 3D,
+ * a tilt-shift band and a dolly-and-orbit push (the native move). Render with `--gl=angle` on Windows.
  */
 export const MoneyBars3D: React.FC<MoneyBars3DProps> = (props) => {
-  const {width = 1080, height = 1920, orbit = 0.35, orbitFrames = 240} = props;
+  const {width = 1080, height = 1920, push, labels = true, formatValue = (n) => String(n), formatTick, ink = '#1d1a16', fontFamily = 'Georgia, serif', bars, axisMax, start = 0, riseFrames = 26, stagger = 4, tickCount = 4} = props;
   const frame = useCurrentFrame();
-  const cam = cameraAt(orbit, Math.min(1, frame / orbitFrames));
+  const cam = moneyCamera(frame, push);
+  const n = bars.length;
+  const span = n * SLOT + 1.4;
   return (
-    <ThreeCanvas
-      width={width}
-      height={height}
-      shadows="soft"
-      camera={{position: cam.position, fov: cam.fov, near: 0.1, far: 100}}
-      gl={{antialias: true, toneMapping: THREE.NoToneMapping}}
-    >
-      <Scene {...props} cam={cam} />
-    </ThreeCanvas>
+    <AbsoluteFill>
+      <ThreeCanvas width={width} height={height} shadows="soft" camera={{position: cam.position, fov: cam.fov, near: 0.1, far: 120}} gl={{antialias: true, toneMapping: THREE.NoToneMapping}}>
+        <Scene {...props} cam={cam} />
+      </ThreeCanvas>
+      {labels ? (
+        <AbsoluteFill style={{pointerEvents: 'none', fontFamily, color: ink}}>
+          {Array.from({length: tickCount}, (_, k0) => {
+            const k = k0 + 1;
+            const v = (k / tickCount) * axisMax;
+            const q = projectPoint([-span / 2 + 0.12, (k / tickCount) * BAR_MAX_HEIGHT + 0.28, WALL_Z], cam, width, height);
+            const a = ease(frame, start, 14, expoOut);
+            return (
+              <div key={k} style={{position: 'absolute', left: q.x, width: 260, top: q.y - 24, textAlign: 'left', fontSize: 38, opacity: 0.8 * a}}>
+                {(formatTick ?? formatValue)(v)}
+              </div>
+            );
+          })}
+          {bars.map((b, i) => {
+            const top = projectPoint([barX(i, n), barTopY(b.value, axisMax) + 0.55, 0], cam, width, height);
+            const base = projectPoint([barX(i, n), 0.05, DEPTH / 2 + 0.1], cam, width, height);
+            const a = ease(frame, start + i * stagger + riseFrames - 8, 8, expoOut);
+            return (
+              <React.Fragment key={b.label}>
+                <div style={{position: 'absolute', left: top.x - 160, width: 320, top: top.y - 30, textAlign: 'center', fontWeight: 800, fontSize: 54, opacity: a, transform: `translateY(${(1 - a) * 16}px)`}}>
+                  {formatValue(b.value)}
+                </div>
+                <div style={{position: 'absolute', left: base.x - 130, width: 260, top: base.y + 8, textAlign: 'center', fontSize: 40, opacity: ease(frame, start, 14, expoOut)}}>{b.label}</div>
+              </React.Fragment>
+            );
+          })}
+        </AbsoluteFill>
+      ) : null}
+    </AbsoluteFill>
   );
 };

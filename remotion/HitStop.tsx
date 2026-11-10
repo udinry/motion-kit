@@ -1,6 +1,5 @@
 import React from 'react';
 import {AbsoluteFill, Sequence, useCurrentFrame} from 'remotion';
-import {rng} from './easing';
 
 export type HitStopOptions = {
   freeze?: number;
@@ -18,6 +17,7 @@ export type HitStopState = {
 /**
  * Pure function of the frame. Each impact freezes time for `freeze` (3-4) frames, then shakes
  * `shakePx` (6-10) decaying to zero over `shakeFrames` (8). Impacts must be sorted ascending.
+ * Shake shape (sin/cos at 60 Hz steps, linear decay, y at 0.7x) is the act shake of pixelfx.
  */
 export const hitStopAt = (frame: number, impactFrames: number[], opts: HitStopOptions = {}): HitStopState => {
   const freeze = opts.freeze ?? 4;
@@ -34,10 +34,10 @@ export const hitStopAt = (frame: number, impactFrames: number[], opts: HitStopOp
     else if (sinceImpact >= 0) removed += sinceImpact;
     const shakeAge = sinceImpact - freeze;
     if (shakeAge >= 0 && shakeAge < decay) {
-      const k = 1 - shakeAge / decay;
-      const r = rng(idx * 977 + Math.floor(frame) * 31 + 7);
-      shakeX += (r() * 2 - 1) * amp * k;
-      shakeY += (r() * 2 - 1) * amp * k;
+      const k = amp * (1 - shakeAge / decay);
+      const f = Math.floor((decay - shakeAge) * 2);
+      shakeX += Math.round(Math.sin(f * 2.4 + idx) * k);
+      shakeY += Math.round(Math.cos(f * 3.7 + idx) * k * 0.7);
     }
   });
   return {frame: frame - removed, shake: {x: shakeX, y: shakeY}, frozen};

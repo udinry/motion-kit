@@ -178,6 +178,8 @@ type AxisProps = {
   format?: (n: number) => string;
   growFrames?: number;
   rescaleFrames?: number;
+  tickSize?: number;
+  labelSize?: number;
 };
 
 /** The chart's scale breaks to fit a shocking value: the bar bursts through the top, then the axis rescales. */
@@ -194,10 +196,12 @@ export const AxisRescaleShock: React.FC<AxisProps> = ({
   format = (n) => formatNumber(n),
   growFrames = 8,
   rescaleFrames = 16,
+  tickSize = 40,
+  labelSize = 46,
 }) => {
   const frame = useCurrentFrame();
-  const padL = 150;
-  const padB = 70;
+  const padL = 200;
+  const padB = 90;
   const padT = 40;
   const plotH = height - padB - padT;
   const plotW = width - padL - 10;
@@ -218,7 +222,7 @@ export const AxisRescaleShock: React.FC<AxisProps> = ({
         return (
           <g key={i}>
             <line x1={padL} x2={width - 10} y1={y} y2={y} stroke={ink} strokeOpacity={0.18} strokeWidth={2} />
-            <text x={padL - 16} y={y + 9} textAnchor="end" fontSize={28} fill={ink} fillOpacity={0.7}>
+            <text x={padL - 16} y={y + tickSize / 3} textAnchor="end" fontSize={tickSize} fill={ink} fillOpacity={0.7}>
               {format(t)}
             </text>
           </g>
@@ -232,7 +236,7 @@ export const AxisRescaleShock: React.FC<AxisProps> = ({
         return (
           <g key={i}>
             <rect x={x} y={padT + plotH - hh} width={w} height={hh} fill={isShock ? accent : b.color ?? barColor} />
-            <text x={x + w / 2} y={height - 24} textAnchor="middle" fontSize={30} fill={ink}>
+            <text x={x + w / 2} y={height - 24} textAnchor="middle" fontSize={labelSize} fill={ink}>
               {b.label}
             </text>
           </g>
@@ -257,6 +261,8 @@ type LineProps = {
   format?: (n: number) => string;
   /** Frames of range history averaged so the y-axis eases without state. */
   smooth?: number;
+  tickSize?: number;
+  labelSize?: number;
 };
 
 /** Line draws in with a live head; the y-range follows the visible data. */
@@ -271,12 +277,14 @@ export const LiveLineChart: React.FC<LineProps> = ({
   fontFamily = 'Georgia, serif',
   format = (n) => formatNumber(n, 0),
   smooth = 10,
+  tickSize = 38,
+  labelSize = 56,
 }) => {
   const frame = useCurrentFrame();
   const n = points.length;
   const headAt = (f: number): number => clamp01((f - start) / frames) * (n - 1);
   const rangeAt = (f: number): [number, number] => {
-    const upto = Math.max(1, Math.ceil(headAt(f)));
+    const upto = Math.max(4, Math.ceil(headAt(f)));
     const vis = points.slice(0, upto + 1);
     const hi = Math.max(...vis);
     const lo = Math.min(...vis);
@@ -307,14 +315,14 @@ export const LiveLineChart: React.FC<LineProps> = ({
       {[0, 0.5, 1].map((k) => (
         <g key={k}>
           <line x1={0} x2={width} y1={height * k} y2={height * k} stroke={ink} strokeOpacity={0.15} strokeWidth={2} />
-          <text x={0} y={height * k - 8} fontSize={26} fill={ink} fillOpacity={0.6}>
+          <text x={0} y={height * k - 10} fontSize={tickSize} fill={ink} fillOpacity={0.6}>
             {format(hi - (hi - lo) * k)}
           </text>
         </g>
       ))}
       <path d={d} stroke={color} strokeWidth={8} fill="none" strokeLinejoin="round" strokeLinecap="round" />
       <circle cx={hx} cy={hy} r={13} fill={color} />
-      <text x={Math.min(hx, width - 10)} y={hy - 28} textAnchor="end" fontSize={38} fontWeight={700} fill={ink}>
+      <text x={Math.min(hx, width - 10)} y={hy - 28} textAnchor="end" fontSize={labelSize} fontWeight={700} fill={ink}>
         {format(curV)}
       </text>
     </svg>

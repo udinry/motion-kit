@@ -1,7 +1,7 @@
 import React from 'react';
 import {Composition} from 'remotion';
-import {Showcase} from './Showcase';
+import {Showcase, SHOWCASE_FRAMES} from './Showcase';
 
 export const Root: React.FC = () => (
-  <Composition id="Showcase" component={Showcase} durationInFrames={720} fps={30} width={1080} height={1920} />
+  <Composition id="Showcase" component={Showcase} durationInFrames={SHOWCASE_FRAMES} fps={30} width={1080} height={1920} />
 );

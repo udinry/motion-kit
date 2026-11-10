@@ -5,48 +5,87 @@ import {clamp01, cubicInOut, ease, expoOut, rng} from './easing';
 import {jCut} from './timing';
 
 type ConfettiProps = {
-  /** The winner's colour first; the rest are tints around it. */
+  /** Front colours; the winner's accent first. Backs of the paper pieces are a darker shade of the front. */
   colors: string[];
   /** Local frame the finish happens. Use at finish moments only. */
   start: number;
   count?: number;
   duration?: number;
   seed?: number;
-  mode?: 'rain' | 'cannon';
+  /** 'burst' pops out of `origin` (a popper) and stalls in the air; 'rain' falls from the top. */
+  mode?: 'burst' | 'rain';
+  origin?: {x: number; y: number};
+  /** Aim of the burst in degrees (-90 = straight up) and half-spread. */
+  aim?: number;
+  spread?: number;
+  /** Pieces come to rest here (px from top); omit to let them fall out of frame. */
+  floorY?: number;
+  /** Piece size multiplier; the base piece is 30 x 16 px. */
+  size?: number;
   width?: number;
   height?: number;
 };
 
-/** Seeded confetti flown in closed form (position = f(frame)); no particle state. */
-export const Confetti: React.FC<ConfettiProps> = ({colors, start, count = 90, duration = 90, seed = 7, mode = 'rain', width = 1080, height = 1920}) => {
+const darken = (hex: string, k: number): string => {
+  const n = parseInt(hex.slice(1), 16);
+  const c = (v: number): number => Math.round(v * k);
+  return `rgb(${c((n >> 16) & 255)}, ${c((n >> 8) & 255)}, ${c(n & 255)})`;
+};
+
+/**
+ * Paper confetti flown in closed form (position = f(frame)): thrown hard, air drag stalls it, then it falls
+ * and flutters (a swing that grows, a flip that shows the darker back) and settles on `floorY`.
+ * Burst / stall / flutter / settle follows pixelfx's confetti; the maths here is ours.
+ */
+export const Confetti: React.FC<ConfettiProps> = ({colors, start, count = 60, duration = 110, seed = 7, mode = 'burst', origin = {x: 540, y: 1000}, aim = -90, spread = 38, floorY, size = 1, width = 1080, height = 1920}) => {
   const frame = useCurrentFrame();
   const t = frame - start;
   if (t < 0 || t > duration) return null;
   const r = rng(seed);
+  const g = 0.55;
+  const drag = 0.07;
   const pieces = Array.from({length: count}, (_, i) => {
-    const delay = mode === 'rain' ? r() * 24 : r() * 4;
-    const side = i % 2 === 0 ? -1 : 1;
-    const x0 = mode === 'rain' ? r() * width : side < 0 ? -20 : width + 20;
-    const y0 = mode === 'rain' ? -40 - r() * 200 : height * 0.82;
-    const vx = mode === 'rain' ? (r() - 0.5) * 4 : -side * (14 + r() * 18);
-    const vy = mode === 'rain' ? 6 + r() * 7 : -(30 + r() * 22);
-    const g = mode === 'rain' ? 0.04 : 0.9;
-    const w = 14 + r() * 14;
-    const h = w * (0.45 + r() * 0.4);
-    const spin = (r() - 0.5) * 24;
-    const flutter = r() * Math.PI * 2;
-    const color = colors[Math.floor(r() * colors.length)];
-    return {delay, x0, y0, vx, vy, g, w, h, spin, flutter, color};
+    const delay = mode === 'rain' ? r() * 30 : r() * 3;
+    const a = ((aim + (r() * 2 - 1) * spread) * Math.PI) / 180;
+    const sp = mode === 'rain' ? 0 : 26 + r() * 26;
+    const x0 = mode === 'rain' ? r() * width : origin.x;
+    const y0 = mode === 'rain' ? -60 - r() * 300 : origin.y;
+    const vx = mode === 'rain' ? (r() - 0.5) * 3 : Math.cos(a) * sp;
+    const vy = mode === 'rain' ? 4 + r() * 4 : Math.sin(a) * sp;
+    const w = (24 + r() * 22) * size;
+    const h = w * (0.45 + r() * 0.25);
+    const spin = (r() - 0.5) * 18;
+    const ph = r() * Math.PI * 2;
+    const fs = 0.16 + r() * 0.16;
+    const amp = 18 + r() * 34;
+    const front = colors[i % colors.length];
+    return {delay, x0, y0, vx, vy, w, h, spin, ph, fs, amp, front};
   });
+  const pos = (p: (typeof pieces)[number], tt: number): {x: number; y: number} => {
+    const e = 1 - Math.exp(-drag * tt);
+    const x = p.x0 + (p.vx / drag) * e;
+    const y = p.y0 + ((p.vy + g / drag) / drag) * e - (g / drag) * tt;
+    const flutter = Math.min(1, tt / 18);
+    return {x: x + Math.sin(tt * p.fs + p.ph) * p.amp * flutter, y};
+  };
   return (
     <AbsoluteFill style={{pointerEvents: 'none', overflow: 'hidden'}}>
       {pieces.map((p, i) => {
-        const tt = t - p.delay;
+        let tt = t - p.delay;
         if (tt < 0) return null;
-        const x = p.x0 + p.vx * tt + Math.sin(tt * 0.18 + p.flutter) * 22;
-        const y = p.y0 + p.vy * tt + 0.5 * p.g * tt * tt;
-        const fade = 1 - clamp01((t - (duration - 18)) / 18);
-        const flip = Math.cos(tt * 0.3 + p.flutter);
+        let rest = false;
+        if (floorY !== undefined) {
+          for (let k = 0; k <= tt; k += 1) {
+            if (pos(p, k).y >= floorY - p.h) {
+              tt = k;
+              rest = true;
+              break;
+            }
+          }
+        }
+        const {x, y} = pos(p, tt);
+        const flip = rest ? 0.8 : Math.cos(tt * p.fs * 1.6 + p.ph);
+        const fade = floorY === undefined ? 1 - clamp01((t - (duration - 20)) / 20) : 1;
         return (
           <div
             key={i}
@@ -56,9 +95,11 @@ export const Confetti: React.FC<ConfettiProps> = ({colors, start, count = 90, du
               top: y,
               width: p.w,
               height: p.h,
-              background: p.color,
+              background: flip >= 0 ? p.front : darken(p.front, 0.72),
               opacity: fade,
-              transform: `rotate(${p.spin * tt}deg) scaleY(${flip})`,
+              borderRadius: 2,
+              boxShadow: '0 3px 5px rgba(50,30,10,0.25)',
+              transform: `rotate(${rest ? p.spin * tt * 0.5 : p.spin * tt}deg) scaleY(${Math.max(0.12, Math.abs(flip))})`,
             }}
           />
         );
