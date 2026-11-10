@@ -53,11 +53,23 @@ def draw_zones(im, ui):
     return Image.alpha_composite(im.convert("RGBA"), ov).convert("RGB")
 
 
+def duration(video):
+    """Video length in seconds from ffmpeg's banner, or None."""
+    r = subprocess.run([ffmpeg_path(), "-i", video], capture_output=True, text=True).stderr
+    m = re.search(r"Duration:\s*(\d+):(\d+):([\d.]+)", r)
+    return int(m.group(1)) * 3600 + int(m.group(2)) * 60 + float(m.group(3)) if m else None
+
+
 def grab(video, t, out, width):
+    """Grab one frame; returns False (and warns) when the time is past the end or ffmpeg wrote nothing, instead of crashing."""
     subprocess.run(
         [ffmpeg_path(), "-v", "error", "-y", "-ss", f"{max(0.0, t):.4f}", "-i", video, "-frames:v", "1", "-vf", f"scale={width}:-2", out],
-        check=True,
+        check=False,
     )
+    ok = os.path.exists(out) and os.path.getsize(out) > 0
+    if not ok:
+        print(f"skip t={t:.2f}s: no frame (past the end?)")
+    return ok
 
 
 def sheet(frames, cols, label_h=22):
@@ -99,11 +111,18 @@ def main():
         r = subprocess.run([ffmpeg_path(), "-i", a.video], capture_output=True, text=True).stderr
         ui = "ig" if re.search(r"Video:.*1080x1920", r) else "none"
 
+    dur = duration(a.video)
+    if dur:
+        skipped = [t for t in times if t > dur - 0.034]
+        if skipped:
+            print(f"skip times past the end ({dur:.2f}s): {skipped}")
+        times = [t for t in times if t <= dur - 0.034]
     tmp = tempfile.mkdtemp()
     frames = []
     for k, t in enumerate(times):
         p = os.path.join(tmp, f"f{k}.png")
-        grab(a.video, t, p, a.width)
+        if not grab(a.video, t, p, a.width):
+            continue
         frames.append((f"{t:.2f}s", Image.open(p).convert("RGB")))
     if ui != "none":
         frames = [(l, draw_zones(im, ui)) for l, im in frames]
@@ -116,10 +135,14 @@ def main():
         for k in range(n):
             t = c - 0.1 + k * (0.2 / (n - 1))
             p = os.path.join(tmp, f"s{c}_{k}.png")
-            grab(a.video, t, p, a.width)
+            if (dur and t > dur - 0.034) or not grab(a.video, t, p, a.width):
+                continue
             im = Image.open(p).convert("RGB")
             row.append((f"{t:.3f}", draw_zones(im, ui) if ui != "none" else im))
-        parts.append(sheet(row, n))
+        if row:
+            parts.append(sheet(row, n))
+    if not parts:
+        raise SystemExit("no frames in range")
     W = max(p.width for p in parts)
     H = sum(p.height for p in parts)
     out = Image.new("RGB", (W, H), (24, 22, 20))
