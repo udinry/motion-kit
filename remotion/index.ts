@@ -9,3 +9,4 @@ export * from './Texture';
 export * from './Fx';
 export * from './Cards';
 export * from './Transitions';
+export * from './fit';

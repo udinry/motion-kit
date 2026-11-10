@@ -1,6 +1,7 @@
 import React from 'react';
 import {useCurrentFrame} from 'remotion';
 import {clamp01, cubicInOut, ease, expoOut, lerp} from './easing';
+import {fitFontSizeParts, SAFE_WIDTH} from './fit';
 
 const NUM_FONT = 'Georgia, serif';
 
@@ -29,7 +30,7 @@ export const DigitRoll: React.FC<DigitRollProps> = ({
   frames = 24,
   stagger = 2,
   loops = 1,
-  fontSize = 140,
+  fontSize: requestedSize = 140,
   color = '#1d1a16',
   fontFamily = NUM_FONT,
   fontWeight = 800,
@@ -39,6 +40,9 @@ export const DigitRoll: React.FC<DigitRollProps> = ({
 }) => {
   const frame = useCurrentFrame();
   const chars = Array.from(value);
+  const digits = chars.filter((c) => /\d/.test(c)).length;
+  const others = chars.filter((c) => !/\d/.test(c)).join('');
+  const fontSize = fitFontSizeParts([[others, 1], [unit ?? '', unit ? 0.5 : 0]], requestedSize, digits * 0.62 + (unit ? 0.14 : 0), {fontFamily, fontWeight, maxWidth: SAFE_WIDTH, name: 'DigitRoll'});
   const lh = fontSize * 1.1;
   const digitCount = chars.filter((c) => /\d/.test(c)).length;
   let di = 0;
@@ -132,7 +136,7 @@ export const CountUp: React.FC<CountUpProps> = ({
   prefix = '',
   unit,
   unitDelay = 3,
-  fontSize = 140,
+  fontSize: requestedSize = 140,
   color = '#1d1a16',
   unitColor,
   fontFamily = NUM_FONT,
@@ -141,6 +145,7 @@ export const CountUp: React.FC<CountUpProps> = ({
   const frame = useCurrentFrame();
   const p = ease(frame, start, frames, expoOut);
   const v = lerp(from, to, p);
+  const fontSize = fitFontSizeParts([[prefix + formatNumber(to, decimals, indian), 1], [unit ?? '', unit ? 0.5 : 0]], requestedSize, unit ? 0.14 : 0, {fontFamily, fontWeight, maxWidth: SAFE_WIDTH, name: 'CountUp'});
   const unitP = ease(frame, start + frames + unitDelay - 2, 8, expoOut);
   return (
     <div style={{display: 'inline-flex', alignItems: 'baseline', fontFamily, fontWeight, fontSize, color, fontVariantNumeric: 'tabular-nums'}}>
@@ -187,7 +192,7 @@ export const AxisRescaleShock: React.FC<AxisProps> = ({
   bars,
   shockIndex,
   shockAt,
-  width = 900,
+  width: requestedWidth = 900,
   height = 700,
   accent = '#c8452d',
   ink = '#1d1a16',
@@ -200,6 +205,7 @@ export const AxisRescaleShock: React.FC<AxisProps> = ({
   labelSize = 46,
 }) => {
   const frame = useCurrentFrame();
+  const width = Math.min(requestedWidth, SAFE_WIDTH);
   const padL = 200;
   const padB = 90;
   const padT = 40;
@@ -270,7 +276,7 @@ export const LiveLineChart: React.FC<LineProps> = ({
   points,
   start = 0,
   frames = 90,
-  width = 900,
+  width: requestedWidth = 900,
   height = 520,
   color = '#c8452d',
   ink = '#1d1a16',
@@ -281,6 +287,7 @@ export const LiveLineChart: React.FC<LineProps> = ({
   labelSize = 56,
 }) => {
   const frame = useCurrentFrame();
+  const width = Math.min(requestedWidth, SAFE_WIDTH);
   const n = points.length;
   const headAt = (f: number): number => clamp01((f - start) / frames) * (n - 1);
   const rangeAt = (f: number): [number, number] => {

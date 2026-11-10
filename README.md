@@ -22,6 +22,7 @@ Import with `import {MaskRise, expoOut} from './motion-kit'` and `from './motion
 
 ## Notes
 
+- Big type auto-fits the 90 px side margin (`fitFontSize`, `FitText`, built into MaskRise/FlyingWords/TextAsMask/DigitRoll/CountUp/GaugeNeedle; charts and CardStack clamp to 900 px). In the Studio a console warning names anything that had to shrink; wrap a scene in `OverflowGuard` to catch custom layouts.
 - Everything is a function of the frame number; no timers or carried state. Seeds are explicit.
 - Sound: `py/sfx_peak.py hit.wav --events 8.2` gives the start offset that puts the sample peak on the event; `JCutAudio` starts a scene's sound 4-8 frames early.
 - Do not edit vendored copies in a studio; change the kit and re-sync.

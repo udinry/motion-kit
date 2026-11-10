@@ -111,12 +111,13 @@ type BurnProps = Base & {
   res?: number;
 };
 
-const EMBER = ['#7a1d12', '#c9281f', '#f2561d', '#ffa02e', '#ffd860', '#fff3b0'];
+/** Char to singed paper, no fire colours: the edge scorches from ink to tan. */
+const SCORCH = ['#241c14', '#33281c', '#4a3a28', '#6b5638', '#8c7656', '#b49d74'];
 const hexRgb = (h: string): [number, number, number] => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
 
 /**
- * Burn away: the picture burns in from its edges behind a ragged ember line, the char smoulders, then burns
- * open from the middle onto the next shot. The two fronts are noise fields thresholded against time, so the
+ * Paper burn: the picture chars in from its edges behind a ragged scorched edge (ink to tan, no flame colours), the
+ * char smoulders, then burns open from the middle onto the next shot. The two fronts are noise fields thresholded against time, so the
  * frame is a pure function of the frame number. Design after pixelfx's burn-away transition; the flame
  * particles are left out on purpose (determinism, and no neon).
  */
@@ -133,7 +134,7 @@ export const BurnAway: React.FC<BurnProps> = ({from, to, start, frames = 54, wid
     if (!ctx) return;
     const img = ctx.createImageData(gw, gh);
     const ink = hexRgb(char);
-    const ramp = EMBER.map(hexRgb);
+    const ramp = SCORCH.map(hexRgb);
     const closeEnd = 0.42;
     const openStart = 0.5;
     const kIn = clamp01(t / closeEnd) ** 1.2;
@@ -183,7 +184,7 @@ export const BurnAway: React.FC<BurnProps> = ({from, to, start, frames = 54, wid
           }
         }
         const smoulder = t > closeEnd * 0.95 && t < openStart + 0.1 && hash2(x >> 1, y >> 1, seed + Math.floor(t * 20)) > 0.992 && a === 255;
-        if (smoulder) col = ramp[2];
+        if (smoulder) col = ramp[3];
         img.data[i] = col[0];
         img.data[i + 1] = col[1];
         img.data[i + 2] = col[2];

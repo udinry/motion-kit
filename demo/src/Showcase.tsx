@@ -5,8 +5,8 @@ import {
   BeforeAfterSlider,
   BurnAway,
   CardStack,
-  CameraFlash,
   Confetti,
+  FitText,
   CountUp,
   DigitRoll,
   DriftCamera,
@@ -162,26 +162,26 @@ const Live: React.FC = () => (
   </DriftCamera>
 );
 
-const Poster: React.FC<{k: number}> = ({k}) => {
-  const origin = k === 2 ? '50% 46%' : '50% 50%';
-  const s = k === 0 ? 0.62 : k === 1 ? 1 : 1.9;
-  return (
-    <AbsoluteFill style={{background: SAND, justifyContent: 'center', alignItems: 'center'}}>
-      <div style={{transform: `scale(${s})`, transformOrigin: origin, fontFamily: FONT, color: INK, textAlign: 'center', padding: 60}}>
-        <div style={{fontSize: 110, opacity: 0.85}}>Mumbai</div>
-        <div style={{fontSize: 210, fontWeight: 800, color: ACCENT, lineHeight: 1}}>1,24,500</div>
-        <div style={{fontSize: 110}}>a year</div>
+const Poster: React.FC<{k: number}> = ({k}) => (
+  <AbsoluteFill style={{background: SAND, justifyContent: 'center', alignItems: 'center'}}>
+    {k === 2 ? (
+      <FitText fontSize={300} color={ACCENT}>1,24,500</FitText>
+    ) : (
+      <div style={{transform: `scale(${k === 0 ? 0.62 : 1})`, fontFamily: FONT, color: INK, display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
+        <FitText fontSize={110} fontWeight={400}>Mumbai</FitText>
+        <FitText fontSize={210} color={ACCENT}>1,24,500</FitText>
+        <FitText fontSize={110} fontWeight={400}>a year</FitText>
       </div>
-    </AbsoluteFill>
-  );
-};
+    )}
+  </AbsoluteFill>
+);
 
 const Paparazzi: React.FC = () => <PaparazziFlash flashes={[26, 44, 62]} pops={6} shot={(k) => <Poster k={k} />} />;
 
 const Card: React.FC<{bg: string; fg: string; big: string; small: string}> = ({bg, fg, big, small}) => (
   <AbsoluteFill style={{background: bg, justifyContent: 'center', alignItems: 'center', fontFamily: FONT, color: fg}}>
-    <div style={{fontSize: 90, opacity: 0.8}}>{small}</div>
-    <div style={{fontSize: 160, fontWeight: 800, marginTop: 10}}>{big}</div>
+    <FitText fontSize={90} fontWeight={400} color={fg} maxWidth={760}>{small}</FitText>
+    <FitText fontSize={160} color={fg} maxWidth={760} style={{marginTop: 10}}>{big}</FitText>
   </AbsoluteFill>
 );
 
@@ -206,7 +206,6 @@ const Slider: React.FC = () => (
       </PunchIn>
     </MotionBlur>
     <SpotlightSweep start={16} frames={34} />
-    <CameraFlash at={0} />
   </AbsoluteFill>
 );
 
@@ -227,8 +226,8 @@ const Stack: React.FC = () => (
       step={110}
       cards={FACTS.map(([big, small], i) => (
         <AbsoluteFill key={i} style={{justifyContent: 'center', alignItems: 'center', fontFamily: FONT, color: INK, background: i === 2 ? INK : '#f6efdf'}}>
-          <div style={{fontSize: 230, fontWeight: 800, color: i === 2 ? '#efe6d2' : ACCENT, lineHeight: 1}}>{big}</div>
-          <div style={{fontSize: 100, color: i === 2 ? '#efe6d2' : INK}}>{small}</div>
+          <FitText fontSize={230} color={i === 2 ? '#efe6d2' : ACCENT} maxWidth={760}>{big}</FitText>
+          <FitText fontSize={100} fontWeight={400} color={i === 2 ? '#efe6d2' : INK} maxWidth={760}>{small}</FitText>
         </AbsoluteFill>
       ))}
     />
@@ -237,17 +236,17 @@ const Stack: React.FC = () => (
 
 const PageContent: React.FC = () => (
   <div style={{position: 'relative', width: 1080, height: 2600, background: '#f6efdf', fontFamily: FONT, color: INK}}>
-    <div style={{position: 'absolute', left: 80, top: 120, fontSize: 130, fontWeight: 800}}>Rent report</div>
-    <div style={{position: 'absolute', left: 80, top: 300, fontSize: 240, fontWeight: 800, color: ACCENT, lineHeight: 1}}>62%</div>
-    <div style={{position: 'absolute', left: 80, top: 560, fontSize: 90}}>of take-home pay</div>
+    <FitText fontSize={120} style={{position: 'absolute', left: 90, top: 120}}>Rent report</FitText>
+    <FitText fontSize={240} color={ACCENT} style={{position: 'absolute', left: 90, top: 300}}>62%</FitText>
+    <FitText fontSize={84} fontWeight={400} style={{position: 'absolute', left: 90, top: 570}}>of take-home pay</FitText>
     {[0, 1, 2, 3, 4].map((i) => (
-      <div key={i} style={{position: 'absolute', left: 80 + i * 190, bottom: 1500 - 0, top: 900 + (4 - i) * 120, width: 150, height: 520 - (4 - i) * 120, background: i === 4 ? ACCENT : '#9a917c'}} />
+      <div key={i} style={{position: 'absolute', left: 90 + i * 184, top: 900 + (4 - i) * 120, width: 150, height: 520 - (4 - i) * 120, background: i === 4 ? ACCENT : '#9a917c'}} />
     ))}
-    <div style={{position: 'absolute', left: 80, top: 1540, fontSize: 120, fontWeight: 800}}>2026 is worse</div>
+    <FitText fontSize={110} style={{position: 'absolute', left: 90, top: 1540}}>2026 is worse</FitText>
     {[0, 1, 2, 3].map((i) => (
-      <div key={i} style={{position: 'absolute', left: 80, top: 1760 + i * 90, width: 920 - i * 140, height: 28, background: '#d8c9a8'}} />
+      <div key={i} style={{position: 'absolute', left: 90, top: 1760 + i * 90, width: 900 - i * 140, height: 28, background: '#d8c9a8'}} />
     ))}
-    <div style={{position: 'absolute', left: 80, top: 2200, fontSize: 150, fontWeight: 800}}>Plan it</div>
+    <FitText fontSize={150} style={{position: 'absolute', left: 90, top: 2200}}>Plan it</FitText>
   </div>
 );
 
@@ -255,9 +254,9 @@ const Page: React.FC = () => (
   <PageCam
     pageHeight={2600}
     keys={[
-      {frame: 0, cx: 540, cy: 520, zoom: 1.1, rotX: 22, rotZ: 0},
-      {frame: 50, cx: 480, cy: 1250, zoom: 1.5, rotX: 12, rotZ: -3},
-      {frame: 105, cx: 540, cy: 2000, zoom: 1.15, rotX: 4, rotZ: 0},
+      {frame: 0, cx: 540, cy: 520, zoom: 1.0, rotX: 22, rotZ: 0},
+      {frame: 50, cx: 540, cy: 1250, zoom: 1.0, rotX: 12, rotZ: -3},
+      {frame: 105, cx: 540, cy: 1900, zoom: 1.0, rotX: 4, rotZ: 0},
     ]}
     dof={{focusY: 520, strength: 6}}
   >

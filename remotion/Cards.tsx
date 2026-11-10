@@ -3,6 +3,7 @@ import {AbsoluteFill, useCurrentFrame} from 'remotion';
 import {clamp01, critSpring, cubicInOut, ease, expoIn, expoOut, lerp, rng} from './easing';
 import {cleanText} from './timing';
 import {formatNumber} from './Numbers';
+import {fitFontSize, fitFontSizeParts, SAFE_WIDTH} from './fit';
 
 /* ---------------------------------------------------------------- flying-words */
 
@@ -26,9 +27,10 @@ type FlyingProps = {
  * (big, blurred, fading) as the next arrives. Words are stacked at the centre with a seeded drift.
  * Pattern from video-shotcraft's flying-words card.
  */
-export const FlyingWords: React.FC<FlyingProps> = ({words, start = 0, gap = 12, accent, accentColor = '#c8452d', color = '#1d1a16', fontSize = 190, fontFamily = 'Georgia, serif', fontWeight = 800, seed = 5}) => {
+export const FlyingWords: React.FC<FlyingProps> = ({words, start = 0, gap = 12, accent, accentColor = '#c8452d', color = '#1d1a16', fontSize: requestedSize = 190, fontFamily = 'Georgia, serif', fontWeight = 800, seed = 5}) => {
   const frame = useCurrentFrame();
   const r = rng(seed);
+  const fontSize = fitFontSize(words.map(cleanText), requestedSize, {fontFamily, fontWeight, maxWidth: SAFE_WIDTH - 100, name: 'FlyingWords'});
   return (
     <AbsoluteFill style={{justifyContent: 'center', alignItems: 'center', overflow: 'hidden'}}>
       {words.slice(0, 6).map((raw, i) => {
@@ -82,8 +84,9 @@ type StackProps = {
 };
 
 /** Cards arrive from below one after another; older ones ease back (up, smaller, dimmer) to make a stack. */
-export const CardStack: React.FC<StackProps> = ({cards, start = 0, gap = 20, width = 860, height = 640, step = 96, radius = 36, background = '#f6efdf'}) => {
+export const CardStack: React.FC<StackProps> = ({cards, start = 0, gap = 20, width: requestedWidth = 860, height = 640, step = 96, radius = 36, background = '#f6efdf'}) => {
   const frame = useCurrentFrame();
+  const width = Math.min(requestedWidth, SAFE_WIDTH);
   const arrive = (i: number): number => ease(frame, start + i * gap, 16, expoOut);
   return (
     <AbsoluteFill style={{justifyContent: 'center', alignItems: 'center'}}>
@@ -134,10 +137,11 @@ type TextMaskProps = {
 };
 
 /** Giant letters that act as a window onto a moving picture; revealed by a left-to-right wipe. */
-export const TextAsMask: React.FC<TextMaskProps> = ({text, fill, fontSize = 300, fontFamily = 'Georgia, serif', fontWeight = 900, start = 0, frames = 16, pan = 600, outline, align = 'center', style}) => {
+export const TextAsMask: React.FC<TextMaskProps> = ({text, fill, fontSize: requestedSize = 300, fontFamily = 'Georgia, serif', fontWeight = 900, start = 0, frames = 16, pan = 600, outline, align = 'center', style}) => {
   const frame = useCurrentFrame();
   const p = ease(frame, start, frames, expoOut);
   const drift = clamp01((frame - start) / 150) * pan;
+  const fontSize = fitFontSize(cleanText(text).split(' '), requestedSize, {fontFamily, fontWeight, maxWidth: SAFE_WIDTH, name: 'TextAsMask'});
   return (
     <div
       style={{
@@ -201,6 +205,7 @@ export const GaugeNeedle: React.FC<GaugeProps> = ({value, max, start = 0, frames
   };
   const [nx, ny] = pt(cur, R * 0.86);
   const fade = ease(frame, start - 6, 8, expoOut);
+  const readout = fitFontSizeParts([[formatNumber(value, decimals), 1], [unit ?? '', unit ? 0.48 : 0]], 250, unit ? 0.06 : 0, {fontFamily, maxWidth: SAFE_WIDTH, name: 'GaugeNeedle'});
   return (
     <div style={{position: 'relative', width: size, height: size * 0.8, opacity: fade, fontFamily}}>
       <svg width={size} height={size * 0.8} style={{position: 'absolute', inset: 0, overflow: 'visible'}}>
@@ -217,11 +222,11 @@ export const GaugeNeedle: React.FC<GaugeProps> = ({value, max, start = 0, frames
         <circle cx={cx} cy={cy} r={11} fill="#efe6d2" />
       </svg>
       <div style={{position: 'absolute', left: 0, right: 0, top: cy + 70, textAlign: 'center', color: ink}}>
-        <div style={{fontSize: 250, fontWeight: 800, fontVariantNumeric: 'tabular-nums', lineHeight: 1}}>
+        <div style={{fontSize: readout, fontWeight: 800, fontVariantNumeric: 'tabular-nums', lineHeight: 1}}>
           {formatNumber(cur * max, decimals)}
-          {unit ? <span style={{fontSize: 120, marginLeft: 14, color: accent}}>{unit}</span> : null}
+          {unit ? <span style={{fontSize: readout * 0.48, marginLeft: 14, color: accent}}>{unit}</span> : null}
         </div>
-        {label ? <div style={{fontSize: 72, opacity: 0.75, marginTop: 8}}>{label}</div> : null}
+        {label ? <div style={{fontSize: Math.min(72, readout * 0.29), opacity: 0.75, marginTop: 8}}>{label}</div> : null}
       </div>
     </div>
   );

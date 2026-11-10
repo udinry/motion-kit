@@ -2,6 +2,7 @@ import React from 'react';
 import {useCurrentFrame} from 'remotion';
 import {cleanText} from './timing';
 import {ease, expoOut, STAGGER} from './easing';
+import {fitFontSize, SAFE_WIDTH} from './fit';
 
 type Props = {
   text: string;
@@ -20,6 +21,8 @@ type Props = {
   /** Frame (local) the line starts to leave; exits take 60% of the entrance. 0 disables. */
   exitAt?: number;
   align?: 'left' | 'center' | 'right';
+  /** Widest a word may get (key word at 1.15x included); the font shrinks to fit. */
+  maxWidth?: number;
   style?: React.CSSProperties;
 };
 
@@ -31,7 +34,7 @@ export const MaskRise: React.FC<Props> = ({
   accent,
   accentColor = '#c8452d',
   color = '#1d1a16',
-  fontSize = 96,
+  fontSize: requestedSize = 96,
   fontFamily = 'Georgia, serif',
   fontWeight = 800,
   start = 0,
@@ -40,10 +43,12 @@ export const MaskRise: React.FC<Props> = ({
   maxWords = 6,
   exitAt = 0,
   align = 'center',
+  maxWidth = SAFE_WIDTH,
   style,
 }) => {
   const frame = useCurrentFrame();
   const words = cleanText(text).split(' ').slice(0, maxWords);
+  const fontSize = fitFontSize(words, requestedSize, {fontFamily, fontWeight, maxWidth, grow: accent !== undefined ? 1.15 : 1, name: 'MaskRise'});
   const exitDur = Math.max(1, Math.round(riseFrames * 0.6));
   return (
     <div

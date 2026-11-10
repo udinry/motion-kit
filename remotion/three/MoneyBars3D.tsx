@@ -6,6 +6,7 @@ import {EffectComposer, TiltShift2} from '@react-three/postprocessing';
 import {useThree} from '@react-three/fiber';
 import * as THREE from 'three';
 import {ease, expoOut, lerp, rng} from '../easing';
+import {measureText} from '../fit';
 
 export type MoneyBar = {
   label: string;
@@ -244,7 +245,7 @@ const Scene: React.FC<MoneyBars3DProps & {cam: CameraSpec}> = ({
       <Rig cam={cam} />
       <ambientLight intensity={0.95} color="#fff3de" />
       <directionalLight
-        position={[-6, 10, 7]}
+        position={[-2.5, 12, 6.5]}
         intensity={2.6}
         color="#fff0d6"
         castShadow
@@ -314,19 +315,33 @@ export const MoneyBars3D: React.FC<MoneyBars3DProps> = (props) => {
               </div>
             );
           })}
-          {bars.map((b, i) => {
-            const top = projectPoint([barX(i, n), barTopY(b.value, axisMax) + 0.55, 0], cam, width, height);
-            const base = projectPoint([barX(i, n), 0.05, DEPTH / 2 + 0.1], cam, width, height);
-            const a = ease(frame, start + i * stagger + riseFrames - 8, 8, expoOut);
-            return (
-              <React.Fragment key={b.label}>
-                <div style={{position: 'absolute', left: top.x - 160, width: 320, top: top.y - 30, textAlign: 'center', fontWeight: 800, fontSize: 54, opacity: a, transform: `translateY(${(1 - a) * 16}px)`}}>
-                  {formatValue(b.value)}
-                </div>
-                <div style={{position: 'absolute', left: base.x - 130, width: 260, top: base.y + 8, textAlign: 'center', fontSize: 40, opacity: ease(frame, start, 14, expoOut)}}>{b.label}</div>
-              </React.Fragment>
-            );
-          })}
+          {(() => {
+            const tops = bars.map((b, i) => projectPoint([barX(i, n), barTopY(b.value, axisMax) + 0.55, 0], cam, width, height));
+            const bases = bars.map((_, i) => projectPoint([barX(i, n), 0.05, DEPTH / 2 + 0.1], cam, width, height));
+            const gaps = tops.slice(1).map((t, i) => t.x - tops[i].x);
+            const minGap = gaps.length ? Math.min(...gaps) : 400;
+            const GAP = 28;
+            const widest = (texts: string[], size: number, weight: number): number => Math.max(...texts.map((t) => measureText(t, size, fontFamily, weight)));
+            const vTexts = bars.map((b) => formatValue(b.value));
+            const cTexts = bars.map((b) => b.label);
+            let vSize = 54;
+            while (vSize > 34 && widest(vTexts, vSize, 800) + GAP > minGap) vSize -= 2;
+            const vStagger = widest(vTexts, vSize, 800) + GAP > minGap;
+            let cSize = 40;
+            while (cSize > 28 && widest(cTexts, cSize, 400) + GAP > minGap) cSize -= 2;
+            return bars.map((b, i) => {
+              const a = ease(frame, start + i * stagger + riseFrames - 8, 8, expoOut);
+              const lift = vStagger && i % 2 === 1 ? vSize * 1.15 : 0;
+              return (
+                <React.Fragment key={b.label}>
+                  <div style={{position: 'absolute', left: tops[i].x - 160, width: 320, top: tops[i].y - 30 - lift, textAlign: 'center', fontWeight: 800, fontSize: vSize, opacity: a, transform: `translateY(${(1 - a) * 16}px)`}}>
+                    {vTexts[i]}
+                  </div>
+                  <div style={{position: 'absolute', left: bases[i].x - 130, width: 260, top: bases[i].y + 8, textAlign: 'center', fontSize: cSize, opacity: ease(frame, start, 14, expoOut)}}>{cTexts[i]}</div>
+                </React.Fragment>
+              );
+            });
+          })()}
         </AbsoluteFill>
       ) : null}
     </AbsoluteFill>
