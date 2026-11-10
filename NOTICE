@@ -1,0 +1,5 @@
+motion-kit is original code. Ideas and method were studied from, and no source was copied from:
+- Vincentwei1021/video-shotcraft (Apache-2.0): beat-grid method (librosa beat_track plus least-squares fit, 15 ms residual), shot card vocabulary (axis-rescale shock, digit roll, before/after slider).
+- patch-gg/pixelfx (MIT): hit-stop and shake timing.
+- lemomo-ai/lemo-opuscar (MIT) and the Opus prompt packs: read-time rule, determinism rules.
+Third-party packages used by demo/ and remotion/three: Remotion (own licence, company licence may apply), three, @react-three/fiber, drei, postprocessing (MIT).

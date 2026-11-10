@@ -1,0 +1,77 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>motion-kit html demo</title>
+<style>html,body{margin:0;background:#222}canvas{display:block;width:540px;height:960px}</style>
+<canvas id="c" width="1080" height="1920"></canvas>
+<script type="module">
+import * as K from './index.js';
+const c = document.getElementById('c'), ctx = c.getContext('2d');
+const W = 1080, H = 1920, FPS = 30, DUR = 8;
+const INK = '#1d1a16', ACCENT = '#c8452d', PAPER = '#efe6d2';
+
+window.render = (t) => {
+  const frame = Math.round(t * FPS);
+  const hs = K.hitStop(t, [4.0]);
+  ctx.save();
+  ctx.fillStyle = PAPER; ctx.fillRect(0, 0, W, H);
+  ctx.translate(hs.shake.x, hs.shake.y);
+  const tt = hs.t;
+
+  [[0.3, '#e3d6b8', 1250], [0.6, '#d3c3a0', 1420], [1, '#bfae88', 1640]].forEach(([d, col, y], k) => {
+    const p = K.parallax(tt, DUR, d, -90);
+    ctx.save(); ctx.translate(W / 2 + p.x, H / 2); ctx.scale(p.scale, p.scale); ctx.translate(-W / 2, -H / 2);
+    ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(-100, H + 50);
+    for (let x = -100; x <= W + 100; x += 60) ctx.lineTo(x, y + Math.sin(x / 190 + k * 2) * (50 + k * 20));
+    ctx.lineTo(W + 100, H + 50); ctx.fill(); ctx.restore();
+  });
+
+  const cam = K.drift(tt, DUR) * K.punchIn(tt, 1.0);
+  ctx.save(); ctx.translate(W / 2, 620); ctx.scale(cam, cam);
+  ctx.font = '800 120px Georgia'; ctx.textAlign = 'left';
+  const words = K.maskRise(tt, 'Rent is eating your salary', {accent: 2});
+  let x = -460, y = 0;
+  ctx.save(); ctx.beginPath(); ctx.rect(-540, -130, 1080, 420); ctx.clip();
+  words.forEach((w) => {
+    const wd = ctx.measureText(w.word).width * w.scale;
+    if (x + wd > 460) { x = -460; y += 140; }
+    ctx.save(); ctx.translate(x, y + (w.y / 100) * 140); ctx.scale(w.scale, w.scale);
+    ctx.fillStyle = w.key ? ACCENT : INK; ctx.fillText(w.word, 0, 0); ctx.restore();
+    x += wd + 30;
+  });
+  ctx.restore();
+  ctx.restore();
+
+  const rows = K.digitRoll(tt, '1,24,500', {start: 1.6});
+  ctx.font = '800 170px Georgia'; ctx.fillStyle = INK;
+  let nx = 220;
+  rows.forEach((r) => {
+    const cw = ctx.measureText(r.char).width;
+    ctx.save(); ctx.beginPath(); ctx.rect(nx - 4, 1050, cw + 8, 190); ctx.clip();
+    ctx.globalAlpha = r.digit ? 1 : r.p;
+    if (r.digit) {
+      const o = r.offset;
+      const shown = (Number(r.char) - Math.floor(o) + 100) % 10;
+      ctx.fillText(String(shown), nx, 1210 + (o % 1) * 190);
+    } else ctx.fillText(r.char, nx, 1210);
+    ctx.restore();
+    nx += cw;
+  });
+
+  const circle = K.drawStroke(tt, 2.8);
+  if (circle < 1) {
+    ctx.save(); ctx.strokeStyle = ACCENT; ctx.lineWidth = 9; ctx.lineCap = 'round';
+    ctx.setLineDash([2400, 2400]); ctx.lineDashOffset = circle * 2400;
+    ctx.beginPath(); ctx.ellipse(505, 1135, 360, 125, -0.05, -Math.PI / 2, Math.PI * 1.6); ctx.stroke(); ctx.restore();
+  }
+
+  K.drawSpotlight(ctx, W, H, K.spotlight(tt, 3.0));
+  K.drawConfetti(ctx, K.confetti(tt, 5.0, [ACCENT, '#dd8a6e', '#f0c7b4'], {mode: 'cannon', count: 70, duration: 1.4}));
+  K.drawFlash(ctx, W, H, K.flash(tt, 5.5));
+  ctx.restore();
+  K.drawVignette(ctx, W, H, 0.2);
+  K.drawGrain(ctx, W, H, frame, {opacity: 0.05});
+};
+window.render(0);
+const q = new URLSearchParams(location.search);
+if (q.has('t')) window.render(parseFloat(q.get('t')));
+</script>

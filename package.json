@@ -1,0 +1,31 @@
+{
+  "name": "motion-kit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared motion library for the studios (see MOTION.md in ig-owner/accounts)",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "studio": "remotion studio demo/src/index.ts",
+    "render": "remotion render demo/src/index.ts Showcase demo/out/showcase.mp4 --concurrency=2 --gl=angle",
+    "still": "remotion still demo/src/index.ts Showcase"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.462",
+    "@remotion/motion-blur": "4.0.462",
+    "@remotion/paths": "4.0.462",
+    "@remotion/three": "4.0.462",
+    "remotion": "4.0.462",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "three": "0.160.1",
+    "@react-three/fiber": "8.17.10",
+    "@react-three/drei": "9.109.2",
+    "@react-three/postprocessing": "2.16.3",
+    "postprocessing": "6.35.5"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.12",
+    "@types/three": "0.160.0",
+    "typescript": "5.6.3"
+  }
+}
